@@ -1,10 +1,20 @@
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 *.pyc
+node_modules/
+dist/
+*.tsbuildinfo
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
 scripts/vm_gtfs.zip
 data/gtfs/
 
-# proposal doc (submitted to Canvas, not part of the code repo)
 CSE598_Capstone_Proposal_NightOutCurator.docx
 *.pdf
+
+.tmp/
+premium-audit.json

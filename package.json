@@ -1,0 +1,24 @@
+{
+  "name": "night-out-curator",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.6.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "concurrently -n backend,frontend -c blue,magenta \"npm run dev --workspace=@night-out/backend\" \"npm run dev --workspace=@night-out/frontend\"",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,css,json,html,svg}\" \"packages/**/*.{ts,json}\" \"ui/*.{js,css,html}\" \"*.{json,md}\" \"docs/**/*.md\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,css,json,html,svg}\" \"packages/**/*.{ts,json}\" \"ui/*.{js,css,html}\" \"*.{json,md}\" \"docs/**/*.md\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.9.10",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  }
+}

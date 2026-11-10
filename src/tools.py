@@ -41,7 +41,7 @@ def _haversine(a_lat, a_lon, b_lat, b_lon):
     h = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
     return 2 * R * math.asin(math.sqrt(h))
 
-# categories the agent may ask for -> our venue categories
+
 _CAT = {"dinner": "restaurant", "restaurant": "restaurant", "food": "restaurant",
         "bar": "bar", "drinks": "bar", "cafe": "cafe", "coffee": "cafe",
         "dessert": "dessert", "after": None}
@@ -110,7 +110,7 @@ def walk_route(from_lat: float, from_lon: float, to_lat: float, to_lon: float) -
         except Exception:
             pass
     d = _haversine(from_lat, from_lon, to_lat, to_lon)
-    return {"distance_m": round(d), "minutes": round(d / 1.4 / 60)}  # ~5 km/h
+    return {"distance_m": round(d), "minutes": round(d / 1.4 / 60)}
 
 
 @tool
@@ -130,7 +130,7 @@ def transit(from_lat: float, from_lon: float, to_lat: float, to_lon: float,
                         "legs": [f"{l.get('mode')} {l.get('route') or ''}".strip() for l in i["legs"]]}
         except Exception:
             pass
-    # offline: use a cached sample if endpoints are close, else estimate
+
     for s in _TRANSIT.values():
         if _haversine(from_lat, from_lon, *s["from"]) < 600 and _haversine(to_lat, to_lon, *s["to"]) < 600:
             return {"total_min": s["total_min"], "legs": [f"{l['mode']} {l['route']}".strip() for l in s["legs"]]}
