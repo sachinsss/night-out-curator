@@ -1,0 +1,111 @@
+﻿import type {
+  RecommendationRequest,
+  RecommendationResponse,
+  Venue,
+  PlacePresentation,
+} from "@night-out/contracts";
+export const requestFixture: RecommendationRequest = {
+  location: { latitude: 33.4484, longitude: -112.074, label: "Phoenix, AZ" },
+  date: "2026-11-14",
+  startTime: "19:00",
+  partySize: 4,
+  budgetPerPerson: 125,
+  currency: "USD",
+  preferences: ["dinner"],
+  excludedCategories: [],
+  transportation: "rideshare",
+  stopCount: 3,
+};
+const venue = (id: string, name: string, latitude: number): Venue => ({
+  placeId: id,
+  name,
+  category: "restaurant",
+  address: "16 W Adams St, Phoenix, AZ",
+  location: { latitude, longitude: -112.074 },
+  businessStatus: "OPERATIONAL",
+  priceLevel: "PRICE_LEVEL_MODERATE",
+  rating: 4.8,
+  userRatingCount: 2400,
+  regularOpeningHours: null,
+  mapsUri: `https://maps.google.com/?cid=${id}`,
+  retrievedAt: "2026-11-14T00:00:00.000Z",
+  distanceMeters: null,
+  relevanceScore: 1,
+  warnings: [],
+});
+export const resultFixture: RecommendationResponse = {
+  requestId: "00000000-0000-4000-8000-000000000001",
+  status: "valid",
+  itineraries: [
+    {
+      id: "00000000-0000-4000-8000-000000000002",
+      title: "Phoenix evening",
+      summary: "A curated three-stop evening for food, drinks, and city views.",
+      stops: [
+        {
+          venue: venue("place1", "El Zaguan Bistro", 33.4484),
+          startTime: "19:00",
+          durationMinutes: 90,
+          reason: "A relaxed dinner to start your evening.",
+        },
+        {
+          venue: venue("place2", "Centrico", 33.451),
+          startTime: "20:45",
+          durationMinutes: 75,
+          reason: "Cocktails in a lively downtown setting.",
+        },
+        {
+          venue: venue("place3", "Rooftop at Cambria", 33.46),
+          startTime: "22:15",
+          durationMinutes: 105,
+          reason: "City views to finish your night.",
+        },
+      ],
+      routeLegs: [
+        {
+          fromPlaceId: "place1",
+          toPlaceId: "place2",
+          distanceMeters: 2000,
+          durationMinutes: 5,
+          mode: "driving",
+          transitSegments: [],
+          realtime: null,
+        },
+        {
+          fromPlaceId: "place2",
+          toPlaceId: "place3",
+          distanceMeters: 3000,
+          durationMinutes: 7,
+          mode: "driving",
+          transitSegments: [],
+          realtime: null,
+        },
+      ],
+      estimatedCostPerPerson: 90,
+      warnings: [],
+    },
+  ],
+  weather: { summary: "Clear", warnings: [] },
+  warnings: [],
+  generatedAt: "2026-11-14T00:00:00.000Z",
+  cache: { discoveryHit: false, planningHit: false },
+};
+export const presentationFixture: PlacePresentation = {
+  placeId: "place1",
+  displayCategory: "Mexican Restaurant",
+  summary: "A downtown dining room.",
+  websiteUri: "https://example.com/menu",
+  mapsUri: "https://maps.google.com/?cid=place1",
+  reviewsUri: "https://maps.google.com/reviews/place1",
+  menuUri: null,
+  reservable: true,
+  parking: ["Paid street parking"],
+  photos: [
+    {
+      name: "places/place1/photos/one",
+      sourceUri: "https://maps.google.com/photo/one",
+      authors: [{ name: "Venue photographer", uri: "https://maps.google.com/contributor" }],
+    },
+    { name: "places/place1/photos/two", sourceUri: null, authors: [] },
+  ],
+};

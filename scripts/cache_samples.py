@@ -13,11 +13,11 @@ UA = {"User-Agent": "night-out-curator/0.1"}
 def get(url):
     return json.loads(urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read())
 
-# Tempe / Mill Ave area
-LAT, LON = 33.4255, -111.9400
-DATE = "2026-09-11"  # a Friday night demo date
 
-# ---- Weather (Open-Meteo, free no key) ----
+LAT, LON = 33.4255, -111.9400
+DATE = "2026-09-11"
+
+
 wq = urllib.parse.urlencode({
     "latitude": LAT, "longitude": LON,
     "hourly": "temperature_2m,precipitation_probability,weather_code",
@@ -33,7 +33,7 @@ weather = {"date": DATE, "lat": LAT, "lon": LON,
 (DATA / "weather_sample.json").write_text(json.dumps(weather, indent=2))
 print(f"cached weather_sample.json ({len(weather['hourly'])} hourly points)")
 
-# ---- Transit (Transitland, free key) ----
+
 key = os.environ.get("TRANSITLAND_KEY")
 if key:
     def rt(k): return k.rstrip()

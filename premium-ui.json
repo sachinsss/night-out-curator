@@ -1,0 +1,21 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["apps/frontend/src"],
+  "locale": "en-US",
+  "requiredCapabilities": ["Select/Listbox", "Date", "Form", "Scrollbar"],
+  "ownership": {
+    "Select/Listbox": "shadcn Radix Select",
+    "Date": "shadcn Calendar + Popover",
+    "Form": "native",
+    "Scrollbar": "global"
+  },
+  "requiredCommands": ["unit", "typecheck", "build"],
+  "commands": {
+    "unit": "npm test --workspace=@night-out/frontend",
+    "typecheck": "npm run typecheck --workspace=@night-out/frontend",
+    "build": "npm run build --workspace=@night-out/frontend"
+  },
+  "evidence": {
+    "failurePaths": "apps/frontend/src/App.test.tsx"
+  }
+}

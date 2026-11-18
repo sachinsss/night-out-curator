@@ -56,7 +56,7 @@ def main():
         print(f"  [{'PASS' if ok else 'FAIL'}] {k:9}: {r['details'][k]}")
     print(f"\n  plan: " + " -> ".join(f"{s['name']} ({s['type']})" for s in plan.get("stops", [])))
     print(f"  score={r['score']}  valid={r['valid']}")
-    # tool-usage summary
+
     used = [tc["name"] for m in result["messages"] if m.__class__.__name__ == "AIMessage"
             for tc in (getattr(m, "tool_calls", None) or [])]
     print(f"\n  tools called ({len(used)}): {used}")

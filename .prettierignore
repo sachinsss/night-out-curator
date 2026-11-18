@@ -1,0 +1,8 @@
+node_modules/
+**/dist/
+.dist/
+.tmp/
+.superpowers/
+artifacts/
+data/
+apps/backend/data/
