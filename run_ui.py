@@ -31,6 +31,7 @@ class UIRequest(BaseModel):
     party_size: int = Field(ge=1, le=20)
     target_hour: int = Field(ge=0, le=23)
     max_walk_m: int = Field(ge=0, le=5000)
+    allow_transit: bool = True
     mood: Literal["chill", "lively", "quiet", "casual", "romantic", ""] = "chill"
     vegan_required: bool = False
     mock: bool = False
@@ -110,6 +111,7 @@ class UIHandler(BaseHTTPRequestHandler):
             self.reply(200, {"provider": os.getenv("LLM_PROVIDER", "openai"),
                              "model": os.getenv("LLM_MODEL", "default"),
                              "region": os.getenv("AWS_REGION", ""), "stop_limit": 4,
+                             "maps_embed_key": os.getenv("GOOGLE_MAPS_EMBED_KEY", ""),
                              "discovery_provider": "Google Maps" if os.getenv("GOOGLE_MAPS_API_KEY") else "Geoapify" if os.getenv("GEOAPIFY_KEY") else "OpenStreetMap / Overpass"})
             return
         if path == "/api/sample":
@@ -122,7 +124,7 @@ class UIHandler(BaseHTTPRequestHandler):
                 self.reply(200, {"status": "empty"})
             return
         files = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"),
-                 "/style.css": ("style.css", "text/css")}
+                 "/style.css": ("style.css", "text/css"), "/theme.css": ("theme.css", "text/css")}
         if path not in files:
             self.reply(404, {"error": "Not found."})
             return

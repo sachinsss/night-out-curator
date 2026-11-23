@@ -80,7 +80,7 @@ class HTTPBoundaryTests(unittest.TestCase):
     def test_config_has_no_credentials(self):
         with urllib.request.urlopen(self.url + "/api/config") as response:
             config = json.load(response)
-        self.assertEqual(set(config), {"provider", "model", "region", "stop_limit", "discovery_provider"})
+        self.assertEqual(set(config), {"provider", "model", "region", "stop_limit", "discovery_provider", "maps_embed_key"})
 
     def test_stream_returns_progress_and_result(self):
         payload = {"request": "Dinner", "stop_types": ["dinner"], "budget_pp": 40,

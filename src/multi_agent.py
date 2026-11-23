@@ -10,13 +10,15 @@ import urllib.request
 from html.parser import HTMLParser
 from typing import TypedDict
 
+from datetime import datetime, timedelta
+
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
 from eval.itinerary import requested_types, verify
 from tools import DATA, search_venues, walk_route, transit, weather
 from discovery import discover_venues
-from google_maps import google_discovery, google_walk
+from google_maps import PHOENIX, google_best_leg, google_discovery
 
 
 class VenueFacts(BaseModel):
@@ -301,18 +303,22 @@ class MultiAgentRunner:
                 "trace": self.event(state, "planner", plan)}
 
     def transit(self, state):
-        self.progress("Transit", "Checking travel between stops")
+        self.progress("Transit", "Finding the fastest way between stops")
         legs = []
         facts = state["facts"]
         stops = state["plan"].get("stops", [])
-        for origin_stop, destination_stop in zip(stops, stops[1:]):
+        constraints = state["scenario"]["constraints"]
+        max_walk = constraints.get("max_walk_m", 1200)
+        allow_transit = constraints.get("allow_transit", True)
+        for index, (origin_stop, destination_stop) in enumerate(zip(stops, stops[1:])):
             origin = facts.get(origin_stop["venue_id"])
             destination = facts.get(destination_stop["venue_id"])
             if not origin or not destination:
                 continue
             if origin.get("provider") == "google" or destination.get("provider") == "google":
                 try:
-                    legs.append(google_walk(origin, destination))
+                    departure = self.departure_time(constraints, index)
+                    legs.append(google_best_leg(origin, destination, departure, max_walk, allow_transit))
                 except Exception:
                     legs.append({"from_id": origin["id"], "to_id": destination["id"], "mode": "walk",
                                  "verified": False, "source": "Google Routes unavailable", "error": "Route not verified"})
@@ -321,14 +327,25 @@ class MultiAgentRunner:
                                        "to_lat": destination["lat"], "to_lon": destination["lon"]})
             leg = {**route, "from_id": origin["id"], "to_id": destination["id"], "mode": "walk",
                    "verified": False, "source": "straight_line_offline_estimate"}
-            constraints = state["scenario"]["constraints"]
-            if constraints.get("allow_transit") and route["distance_m"] > constraints.get("max_walk_m", 1200):
+            if allow_transit:
                 observation = transit.invoke({"from_lat": origin["lat"], "from_lon": origin["lon"],
                                               "to_lat": destination["lat"], "to_lon": destination["lon"]})
                 leg["transit_observation"] = {**observation, "verified": False,
                                               "source": "baseline_sample_or_estimate_not_verified"}
+                if observation["total_min"] < route["minutes"]:
+                    leg["suggested_mode"] = "transit"
             legs.append(leg)
         return {"plan": {**state["plan"], "legs": legs}, "trace": self.event(state, "transit", legs)}
+
+    @staticmethod
+    def departure_time(constraints, index):
+        """Planned departure from stop `index`; None when it is not in the future (Google rejects past times)."""
+        date = constraints.get("outing_date")
+        if not date:
+            return None
+        hours = constraints["target_hour"] + (index + 1) * constraints.get("stop_interval_hours", 2)
+        moment = datetime.fromisoformat(str(date)).replace(tzinfo=PHOENIX) + timedelta(hours=hours)
+        return moment if moment > datetime.now(PHOENIX) else None
 
     def critic(self, state):
         self.progress("Critic", "Checking constraints and missing evidence")

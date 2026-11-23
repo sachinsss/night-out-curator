@@ -132,12 +132,130 @@ def google_open_at(venue, moment):
     return False
 
 
-def google_walk(origin, destination):
+ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
+TRANSIT_FIELDS = ("routes.distanceMeters,routes.duration,routes.legs.steps.travelMode,routes.legs.steps.staticDuration,"
+                  "routes.legs.steps.distanceMeters,routes.legs.steps.transitDetails")
+RAIL_VEHICLES = {"LIGHT_RAIL", "TRAM", "SUBWAY", "RAIL", "HEAVY_RAIL", "COMMUTER_TRAIN", "METRO_RAIL", "MONORAIL"}
+ORBIT_NAMES = {"mercury", "venus", "earth", "mars", "jupiter", "saturn", "neptune", "uranus"}
+
+
+def _seconds(value):
+    return float(str(value).removesuffix("s"))
+
+
+def _route_body(origin, destination, mode, departure=None):
     body = {"origin": {"location": {"latLng": {"latitude": origin["lat"], "longitude": origin["lon"]}}},
             "destination": {"location": {"latLng": {"latitude": destination["lat"], "longitude": destination["lon"]}}},
-            "travelMode": "WALK", "units": "METRIC"}
-    response = google_request("https://routes.googleapis.com/directions/v2:computeRoutes", body,
-                              "routes.distanceMeters,routes.duration")
+            "travelMode": mode, "units": "METRIC"}
+    if departure:
+        body["departureTime"] = departure.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return body
+
+
+def classify_transit_step(details):
+    """Map a Routes API transitDetails block to bus / orbit / light_rail."""
+    line = details.get("transitLine", {})
+    vehicle = line.get("vehicle", {}).get("type", "")
+    name, short = line.get("name", ""), line.get("nameShort", "")
+    label = (short or name).strip()
+    agencies = " ".join(agency.get("name", "") for agency in line.get("agencies", [])).lower()
+    words = {name.lower().replace("orbit", "").strip(), short.lower().replace("orbit", "").strip()}
+    if "orbit" in f"{name} {short}".lower() or ("valley metro" in agencies and words & ORBIT_NAMES):
+        mode = "orbit"
+    elif vehicle in RAIL_VEHICLES:
+        mode = "light_rail"
+    else:
+        mode = "bus"
+    return mode, label
+
+
+def _transit_steps(route):
+    steps = []
+    for step in (route.get("legs") or [{}])[0].get("steps", []):
+        minutes = _seconds(step.get("staticDuration", "0s")) / 60
+        details = step.get("transitDetails")
+        if step.get("travelMode") == "TRANSIT" and details:
+            mode, label = classify_transit_step(details)
+            stops = details.get("stopDetails", {})
+            line = details.get("transitLine", {})
+            steps.append({"mode": mode, "line": label, "line_name": line.get("name", ""), "color": line.get("color", ""),
+                          "headsign": details.get("headsign", ""), "stop_count": details.get("stopCount"),
+                          "from_stop": stops.get("departureStop", {}).get("name", ""),
+                          "to_stop": stops.get("arrivalStop", {}).get("name", ""),
+                          "departs": stops.get("departureTime", ""), "arrives": stops.get("arrivalTime", ""),
+                          "minutes": round(minutes, 1)})
+        elif steps and steps[-1]["mode"] == "walk":
+            steps[-1]["minutes"] += minutes
+            steps[-1]["distance_m"] += round(step.get("distanceMeters", 0))
+        else:
+            steps.append({"mode": "walk", "minutes": minutes, "distance_m": round(step.get("distanceMeters", 0))})
+    for step in steps:
+        step["minutes"] = round(step["minutes"], 1)
+    return [step for step in steps if step["mode"] != "walk" or step["minutes"] >= 0.5]
+
+
+def describe_steps(steps):
+    names = {"orbit": "ORBIT", "light_rail": "Light rail", "bus": "Bus"}
+    parts = []
+    for step in steps:
+        if step["mode"] == "walk":
+            parts.append(f"Walk {round(step['minutes'])} min")
+        else:
+            parts.append(f"{names[step['mode']]} {step['line']} from {step['from_stop']} to {step['to_stop']}".strip())
+    return " > ".join(parts)
+
+
+def _trip_times(steps):
+    """Door-to-door departure and arrival, from the first and last vehicle times plus walks around them."""
+    rides = [index for index, step in enumerate(steps) if step["mode"] != "walk"]
+    if not rides or not steps[rides[0]]["departs"] or not steps[rides[-1]]["arrives"]:
+        return "", ""
+    parse = lambda value: datetime.fromisoformat(value.replace("Z", "+00:00"))
+    lead = sum(step["minutes"] for step in steps[:rides[0]])
+    tail = sum(step["minutes"] for step in steps[rides[-1] + 1:])
+    return ((parse(steps[rides[0]]["departs"]) - timedelta(minutes=lead)).isoformat(),
+            (parse(steps[rides[-1]]["arrives"]) + timedelta(minutes=tail)).isoformat())
+
+
+def google_transit(origin, destination, departure=None):
+    response = google_request(ROUTES_URL, _route_body(origin, destination, "TRANSIT", departure), TRANSIT_FIELDS)
+    routes = response.get("routes", [])
+    if not routes:
+        raise DiscoveryError("Google returned no transit route.")
+    try:
+        steps = _transit_steps(routes[0])
+        seconds = _seconds(routes[0]["duration"])
+        distance = float(routes[0]["distanceMeters"])
+        departs, arrives = _trip_times(steps)
+    except (KeyError, ValueError, AttributeError):
+        raise DiscoveryError("Google transit route is missing duration or steps.") from None
+    if not any(step["mode"] != "walk" for step in steps):
+        raise DiscoveryError("Google transit route has no transit vehicle.")
+    return {"from_id": origin["id"], "to_id": destination["id"], "mode": "transit", "verified": True,
+            "distance_m": round(distance), "minutes": round(seconds / 60, 1), "steps": steps,
+            "departs": departs, "arrives": arrives,
+            "summary": describe_steps(steps), "source": "Google Routes"}
+
+
+def google_best_leg(origin, destination, departure=None, max_walk_m=1200, allow_transit=True):
+    """Fastest verified option between two venues: walking, or transit when it is quicker."""
+    walk = google_walk(origin, destination)
+    if not allow_transit:
+        return walk
+    try:
+        transit_leg = google_transit(origin, destination, departure)
+    except DiscoveryError:
+        return walk
+    candidates = [transit_leg] + ([walk] if walk["distance_m"] <= max_walk_m else [])
+    best = min(candidates, key=lambda leg: leg["minutes"])
+    best["alternative"] = {"mode": "walk" if best is transit_leg else "transit",
+                           "minutes": (walk if best is transit_leg else transit_leg)["minutes"]}
+    return best
+
+
+def google_walk(origin, destination):
+    body = _route_body(origin, destination, "WALK")
+    response = google_request(ROUTES_URL, body, "routes.distanceMeters,routes.duration")
     routes = response.get("routes", [])
     if not routes:
         raise DiscoveryError("Google returned no walking route.")

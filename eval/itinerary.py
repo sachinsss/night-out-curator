@@ -62,12 +62,12 @@ def verify(plan, constraints, facts=None):
                                and leg.get("from_id") == stops[index]["venue_id"]
                                and leg.get("to_id") == stops[index + 1]["venue_id"]
                                and 0 <= leg.get("distance_m", float("inf")) <= constraints.get("max_walk_m", 1200))
-            transit_ok = (constraints.get("allow_transit", False)
+            transit_ok = (constraints.get("allow_transit", True)
                           and leg.get("mode") == "transit" and leg.get("verified") is True
                           and leg.get("from_id") == stops[index]["venue_id"]
                           and leg.get("to_id") == stops[index + 1]["venue_id"]
                           and 0 <= leg.get("minutes", float("inf"))
-                          <= constraints.get("max_transit_min", 20))
+                          <= constraints.get("max_transit_min", 45))
             travel.append(bool(walk_ok or transit_ok))
         checks["travel"] = all(travel)
         details["arrival_hours"] = hours

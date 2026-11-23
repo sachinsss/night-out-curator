@@ -9,6 +9,68 @@ let running = false;
 const icons = () => { if (window.lucide) window.lucide.createIcons(); };
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[character]));
 const icon = (name) => `<i data-lucide="${name}"></i>`;
+const modeIcons = {walk:'footprints', bus:'bus-front', orbit:'bus', light_rail:'train-front', transit:'bus-front'};
+const modeNames = {orbit:'ORBIT', light_rail:'Light rail', bus:'Bus'};
+const fmtTime = (iso) => iso ? new Date(iso).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', timeZone:'America/Phoenix'}) : '';
+const rides = (leg) => (leg.steps || []).filter(step => step.mode !== 'walk');
+const rideLabel = (step) => `${modeNames[step.mode] || 'Bus'} ${step.line}`;
+let mapsEmbedKey = '', activeHop = 0;
+
+function renderHop(leg) {
+  if (!leg || leg.minutes == null) return `<div class="hop">${icon('footprints')}<span>Route unconfirmed <small>${escapeHtml(leg?.source || 'estimate')}</small></span></div>`;
+  if (leg.mode === 'transit' && rides(leg).length) {
+    return `<div class="hop">${icon(modeIcons[rides(leg)[0].mode] || 'bus-front')}<span><strong>${escapeHtml(Math.round(leg.minutes))} min</strong> by ${escapeHtml(rides(leg).map(rideLabel).join(' → '))}</span></div>`;
+  }
+  const suggest = leg.suggested_mode === 'transit' && leg.transit_observation ? ` · transit est. ${escapeHtml(leg.transit_observation.total_min)} min (unverified)` : '';
+  return `<div class="hop">${icon('footprints')}<span><strong>${escapeHtml(Math.round(leg.minutes))} min</strong> walk${leg.distance_m != null ? ` · ${escapeHtml(leg.distance_m)} m` : ''}${suggest}</span></div>`;
+}
+
+function routeCard(leg, from, to) {
+  const title = `<div class="route-title">${escapeHtml(from.name)} <span>→</span> ${escapeHtml(to.name)}</div>`;
+  if (!leg || leg.minutes == null) return `<section class="route-card">${title}<p class="route-note">Route could not be verified.</p></section>`;
+  const head = `<div class="route-total"><strong>${escapeHtml(Math.round(leg.minutes))} min</strong>${leg.departs && leg.arrives ? `<span>${escapeHtml(fmtTime(leg.departs))} → ${escapeHtml(fmtTime(leg.arrives))}</span>` : ''}</div>`;
+  if (leg.mode !== 'transit' || !leg.steps?.length) {
+    return `<section class="route-card">${title}${head}<ol class="timeline"><li class="tl-point"><b>${escapeHtml(from.name)}</b></li><li class="tl-step">${icon('footprints')}<div>Walk ${escapeHtml(Math.round(leg.minutes))} min${leg.distance_m != null ? ` · ${escapeHtml(leg.distance_m)} m` : ''}</div></li><li class="tl-point"><b>${escapeHtml(to.name)}</b></li></ol><p class="route-note">${leg.suggested_mode === 'transit' ? 'Transit estimate is unverified.' : 'Walking is the fastest option.'} <small>${escapeHtml(leg.source || '')}</small></p></section>`;
+  }
+  const items = leg.steps.map((step, index) => {
+    if (step.mode === 'walk') return `<li class="tl-step">${icon('footprints')}<div>Walk ${escapeHtml(Math.round(step.minutes))} min${step.distance_m ? ` · ${escapeHtml(step.distance_m)} m` : ''}</div></li>`;
+    const color = /^#[0-9a-fA-F]{6}$/.test(step.color || '') ? step.color : '#2f6f9f';
+    const stops = step.stop_count ? ` · ${escapeHtml(step.stop_count)} stop${step.stop_count > 1 ? 's' : ''}` : '';
+    return `<li class="tl-point"><time>${escapeHtml(fmtTime(step.departs))}</time><b>${escapeHtml(step.from_stop)}</b></li><li class="tl-step ride">${icon(modeIcons[step.mode] || 'bus-front')}<div><span class="line-badge" style="background:${color}">${escapeHtml(step.line)}</span> <strong>${escapeHtml(modeNames[step.mode] || 'Bus')}</strong>${step.line_name ? ` · ${escapeHtml(step.line_name)}` : ''}<small>${escapeHtml(Math.round(step.minutes))} min${stops}${step.headsign ? ` · toward ${escapeHtml(step.headsign)}` : ''}</small></div></li><li class="tl-point"><time>${escapeHtml(fmtTime(step.arrives))}</time><b>${escapeHtml(step.to_stop)}</b></li>`;
+  }).join('');
+  return `<section class="route-card">${title}${head}<ol class="timeline"><li class="tl-point"><time>${escapeHtml(fmtTime(leg.departs))}</time><b>${escapeHtml(from.name)}</b></li>${items}<li class="tl-point"><time>${escapeHtml(fmtTime(leg.arrives))}</time><b>${escapeHtml(to.name)}</b></li></ol><p class="route-note">Fastest option found${leg.alternative?.mode === 'walk' ? ` (walking would take ${escapeHtml(Math.round(leg.alternative.minutes))} min)` : ''}. <small>${escapeHtml(leg.source)}</small></p></section>`;
+}
+
+function renderRoutePanel(result) {
+  const facts = result.facts || {}, stops = result.plan?.stops || [], legs = result.plan?.legs || [];
+  const cards = stops.slice(0, -1).map((stop, index) => {
+    const from = facts[stop.venue_id], to = facts[stops[index + 1].venue_id];
+    return from && to ? routeCard(legs[index], from, to) : '';
+  }).join('');
+  byId('side-route').innerHTML = cards || '<div class="empty-state">Route appears after a plan is generated.</div>';
+}
+
+function renderGoogleMap(result) {
+  const facts = result.facts || {}, stops = result.plan?.stops || [], legs = result.plan?.legs || [];
+  const hops = stops.slice(0, -1).map((stop, index) => [facts[stop.venue_id], facts[stops[index + 1].venue_id], legs[index]]).filter(([a, b]) => a && b);
+  if (!result.restricted_content || !hops.length) { byId('google-map').innerHTML = ''; return; }
+  activeHop = Math.min(activeHop, hops.length - 1);
+  const [from, to, leg] = hops[activeHop];
+  const mode = leg?.mode === 'transit' ? 'transit' : 'walking';
+  const pair = `origin=${from.lat},${from.lon}&destination=${to.lat},${to.lon}`;
+  const chips = hops.length > 1 ? `<div class="hop-chips">${hops.map((hop, index) => `<button type="button" data-hop="${index}" aria-pressed="${index === activeHop}">${index + 1} → ${index + 2}</button>`).join('')}</div>` : '';
+  const frame = mapsEmbedKey ? `<iframe title="Route map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen src="https://www.google.com/maps/embed/v1/directions?key=${encodeURIComponent(mapsEmbedKey)}&${pair}&mode=${mode}"></iframe>` : `<div class="map-fallback">${icon('map')}<p>Google map embedding is not configured.<br><small>Set GOOGLE_MAPS_EMBED_KEY (Maps Embed API) to show the map here.</small></p></div>`;
+  byId('google-map').innerHTML = `${chips}${frame}<a class="open-maps" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/dir/?api=1&${pair}&travelmode=${mode}">${icon('external-link')} Open route in Google Maps</a>`;
+  byId('google-map').querySelectorAll('[data-hop]').forEach(button => button.addEventListener('click', () => { activeHop = Number(button.dataset.hop); renderGoogleMap(result); icons(); }));
+}
+
+function showSide(name) {
+  document.querySelectorAll('[data-side]').forEach(button => button.setAttribute('aria-selected', String(button.dataset.side === name)));
+  byId('side-route').hidden = name !== 'route';
+  byId('side-map').hidden = name !== 'map';
+  if (name === 'map' && map) setTimeout(() => map.invalidateSize(), 30);
+}
+document.querySelectorAll('[data-side]').forEach(button => button.addEventListener('click', () => showSide(button.dataset.side)));
 const formatHour = (hour) => {
   const minutes = Math.round(hour * 60) % (24 * 60);
   const clockHour = Math.floor(minutes / 60);
@@ -40,7 +102,7 @@ document.querySelectorAll('input[name=mode]').forEach((input) => input.addEventL
 for (const field of ['search-area','search-radius']) byId(field).addEventListener('change', () => { byId('area-summary').innerHTML = `${escapeHtml(byId('search-area').selectedOptions[0].textContent)}<small>${Number(byId('search-radius').value) / 1000} km search radius</small>`; });
 
 function formPayload() {
-  return {request:byId('request').value,cuisine:byId('cuisine').value,venue_provider:byId('venue-provider').value,outing_date:byId('outing-date').value,stop_types:[...requestedStops],budget_pp:Number(byId('budget').value),party_size:Number(byId('party').value),target_hour:Number(byId('hour').value),max_walk_m:Number(byId('walk').value),mood:byId('mood').value,vegan_required:byId('vegan').checked,mock:document.querySelector('input[name=mode]:checked').value === 'mock',max_attempts:Number(byId('attempts').value),data_mode:byId('data-mode').value,search_area:byId('search-area').value,radius_m:Number(byId('search-radius').value),candidate_limit:Number(byId('candidate-limit').value)};
+  return {request:byId('request').value,cuisine:byId('cuisine').value,venue_provider:byId('venue-provider').value,outing_date:byId('outing-date').value,stop_types:[...requestedStops],budget_pp:Number(byId('budget').value),party_size:Number(byId('party').value),target_hour:Number(byId('hour').value),max_walk_m:Number(byId('walk').value),allow_transit:byId('transit').checked,mood:byId('mood').value,vegan_required:byId('vegan').checked,mock:document.querySelector('input[name=mode]:checked').value === 'mock',max_attempts:Number(byId('attempts').value),data_mode:byId('data-mode').value,search_area:byId('search-area').value,radius_m:Number(byId('search-radius').value),candidate_limit:Number(byId('candidate-limit').value)};
 }
 
 async function readRunResponse(response) {
@@ -150,7 +212,7 @@ function renderResult(result) {
     const url = /^https:\/\//.test(venue.website || '') ? venue.website : null;
     const card = `<article class="stop-card"><span class="stop-badge">${index + 1}</span><div class="stop-label">${escapeHtml(valid || provisional ? stopKinds[kind] || kind : 'Last candidate')}</div><h3>${escapeHtml(venue.name || stop.venue_id)}</h3><div class="venue-meta"><strong>${escapeHtml(price)}</strong><span>${escapeHtml(venue.cuisine || '')}</span></div><div class="venue-meta"><span>${escapeHtml(close)}</span><span>${venue.vegan === true ? 'Vegan options' : venue.vegan === false ? 'Not vegan verified' : 'Diet unconfirmed'}</span></div><div class="venue-footer"><span>${venue.provider === 'google' ? googleAttribution : live ? 'Provider listing / page extraction' : 'Annotated fixture evidence'}</span>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Website ${icon('external-link')}</a>` : ''}</div></article>`;
     const leg = result.plan.legs?.[index];
-    const hop = index < stops.length - 1 ? `<div class="hop">${icon('footprints')}<span>${leg?.distance_m != null ? `${escapeHtml(leg.distance_m)} m / ${escapeHtml(leg.minutes)} min` : 'Route unconfirmed'} <small>${escapeHtml(leg?.source || 'estimate')}</small></span></div>` : '';
+    const hop = index < stops.length - 1 ? renderHop(leg) : '';
     return card + hop;
   }).join('') : '<div class="empty-state">No verified stops returned.</div>';
   byId('caveats').hidden = false;
@@ -171,6 +233,7 @@ function renderResult(result) {
   byId('download').disabled = result.restricted_content === true;
   byId('map').hidden = result.restricted_content === true;
   byId('google-locations').hidden = result.restricted_content !== true;
+  renderRoutePanel(result); renderGoogleMap(result); showSide('route');
   if(result.restricted_content) byId('google-locations').innerHTML = googleAttribution + stops.map(stop => {const venue=facts[stop.venue_id];return venue ? `<div class="google-location"><strong>${escapeHtml(venue.name)}</strong><p>${escapeHtml(venue.address)}</p><a href="${escapeHtml(venue.source_url)}" target="_blank" rel="noopener noreferrer">Open in Google Maps ${icon('external-link')}</a></div>` : '';}).join('');
   if (map && mapLayer && !result.restricted_content) {
     mapLayer.clearLayers();
@@ -240,6 +303,7 @@ async function boot() {
     const config = await (await fetch('/api/config')).json();
     byId('model-name').textContent = config.model.includes('haiku') ? `Haiku 4.5 / ${config.region}` : `${config.provider} / ${config.region}`;
     byId('venue-provider').value = config.discovery_provider === 'Google Maps' ? 'google' : 'geoapify';
+    mapsEmbedKey = config.maps_embed_key || '';
     const sample = await (await fetch('/api/sample')).json();
     if (sample.status !== 'empty') renderResult(sample);
   } catch { byId('run-status').textContent = 'Server unavailable'; }
