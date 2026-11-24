@@ -36,7 +36,7 @@ class UITests(unittest.TestCase):
         with patch("run_ui.MultiAgentRunner") as runner:
             runner.return_value.run.return_value = {}
             run_request(self.payload)
-        runner.assert_called_once_with(mock=False, max_attempts=2, live_discovery=False)
+        runner.assert_called_once_with(mock=False, max_attempts=8, live_discovery=False)
 
     def test_live_area_passed_to_provider(self):
         self.payload.update(data_mode="live", search_area="phoenix", radius_m=12000)

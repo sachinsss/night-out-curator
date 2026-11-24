@@ -115,3 +115,29 @@ footer{background:var(--navy);color:#c9cfe8;border:0;max-width:none;margin-top:2
 .map-fallback{display:grid;place-items:center;text-align:center;min-height:200px;border:1px dashed var(--blue);border-radius:var(--radius);background:var(--blue-l);color:var(--navy);padding:20px}
 .map-fallback svg{width:30px;height:30px;color:var(--blue)}
 .open-maps{display:inline-flex;gap:6px;align-items:center;margin:12px 0;font-size:12px;font-weight:600;color:var(--blue);text-decoration:none}
+
+/* Compact controls */
+.controls textarea{min-height:64px;height:64px}
+.controls label{margin-top:8px}
+.controls .field-row{gap:8px}
+.action-row{display:flex;gap:8px;margin-top:12px}
+.action-row .run-button{flex:1;margin:0}
+.action-row .browse-button{margin:0;width:auto;padding:0 14px}
+.toggle-row{padding:6px 0}
+.billing-note{margin:6px 0 0;font-size:11px}
+
+.controls select,.controls input:not([type=checkbox]):not([type=radio]):not([type=range]){margin-bottom:6px;padding-top:7px;padding-bottom:7px}
+.controls .field-row{margin-bottom:0}
+.controls label{margin-top:4px;margin-bottom:3px}
+.controls{padding:18px 20px}
+.controls .section-heading{margin-bottom:6px}
+.search-options{margin:4px 0 6px}
+.search-options summary{margin-bottom:6px}
+.controls .toggle-row{margin:0}
+.hero{padding:10px 34px 34px}
+.hero h1{font-size:36px;margin:8px 0}
+.hero p{margin:0 0 10px;max-width:560px}
+.hero::after{width:150px;height:150px}
+@media(min-width:1100px){.controls{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto}}
+
+.map-column:has(#side-route:empty){display:none}

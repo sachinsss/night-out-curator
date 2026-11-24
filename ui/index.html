@@ -25,28 +25,23 @@
       <form id="plan-form">
         <label for="request">Your outing</label>
         <textarea id="request" maxlength="2000" required>Plan a chill night near ASU Tempe for four friends. Vegan-friendly dinner, then dessert around 7pm.</textarea>
-        <label for="cuisine">Dinner cuisine</label><select id="cuisine"><option value="">From request / no preference</option><option value="indian">Indian</option><option value="italian">Italian</option><option value="mexican">Mexican</option><option value="chinese">Chinese</option><option value="thai">Thai</option><option value="japanese">Japanese</option><option value="mediterranean">Mediterranean</option><option value="american">American</option></select>
-        <div hidden><label for="venue-provider">Live provider</label><select id="venue-provider"><option value="google" selected>Google Maps</option><option value="geoapify">Geoapify / OpenStreetMap</option></select><label><input type="radio" name="mode" value="real" checked></label><label><input type="radio" name="mode" value="mock"></label></div>
-        <label for="outing-date">Outing date</label><input id="outing-date" type="date" required>
-        <details class="search-options"><summary>Advanced: venue data, area and coverage</summary><label for="data-mode">Venue data</label><select id="data-mode"><option value="live" selected>Live listings</option><option value="fixture">Fixture catalog</option></select><label for="search-area">Area</label><select id="search-area"><option value="tempe">Tempe</option><option value="phoenix">Downtown Phoenix</option><option value="metro">Phoenix / Tempe metro</option></select><div class="field-row"><div><label for="search-radius">Search radius</label><select id="search-radius"><option value="2000">2 km</option><option value="5000" selected>5 km</option><option value="10000">10 km</option><option value="20000">20 km</option><option value="30000">30 km</option></select></div><div><label for="candidate-limit">Result limit</label><select id="candidate-limit"><option value="30">30</option><option value="60" selected>60</option><option value="120">120</option></select></div></div></details>
+        <div hidden><label for="venue-provider">Live provider</label><select id="venue-provider"><option value="google" selected>Google Maps</option></select><label><input type="radio" name="mode" value="real" checked></label><label><input type="radio" name="mode" value="mock"></label><select id="attempts"><option value="8" selected>8</option></select><select id="data-mode"><option value="live" selected>Live</option><option value="fixture">Fixture</option></select><select id="search-radius"><option value="5000" selected>5 km</option></select><select id="candidate-limit"><option value="60" selected>60</option></select><select id="mood"><option value="" selected></option></select><input id="vegan" type="checkbox"><input id="transit" type="checkbox" checked><span id="area-summary"></span></div>
+        <div class="field-row">
+          <div><label for="outing-date">Date</label><input id="outing-date" type="date" required></div>
+          <div><label for="hour">Start time</label><select id="hour"></select></div>
+        </div>
         <div class="field-row">
           <div><label for="budget">Maximum / person</label><div class="affixed-input"><span>$</span><input id="budget" type="number" min="1" max="500" value="40" required></div></div>
           <div><label for="party">Party size</label><input id="party" type="number" min="1" max="20" value="4" required></div>
         </div>
-        <div class="field-row">
-          <div><label for="hour">Start time</label><select id="hour"></select></div>
-          <div><label for="mood">Atmosphere</label><select id="mood"><option value="chill">Chill</option><option value="lively">Lively</option><option value="quiet">Quiet</option><option value="casual">Casual</option><option value="romantic">Romantic</option><option value="">No preference</option></select></div>
-        </div>
+        <label for="search-area">Area</label><select id="search-area"><option value="tempe" selected>Tempe</option><option value="phoenix">Downtown Phoenix</option><option value="metro">Phoenix / Tempe metro</option></select>
+        <label for="cuisine">Dinner cuisine</label><select id="cuisine"><option value="">Any</option><option value="indian">Indian</option><option value="italian">Italian</option><option value="mexican">Mexican</option><option value="chinese">Chinese</option><option value="thai">Thai</option><option value="japanese">Japanese</option><option value="mediterranean">Mediterranean</option><option value="american">American</option></select>
         <div class="range-heading"><label for="walk">Maximum walk / hop</label><output id="walk-label">1,200 m</output></div>
         <input id="walk" type="range" min="0" max="5000" step="100" value="1200">
-        <label class="toggle-row" for="vegan"><span><i data-lucide="leaf"></i> Vegan at every stop</span><input id="vegan" type="checkbox" checked></label>
-        <label class="toggle-row" for="transit"><span><i data-lucide="bus-front"></i> Use Valley Metro transit when faster</span><input id="transit" type="checkbox" checked></label>
         <div class="stops-heading"><label>Stops</label><button id="add-stop" class="icon-button" type="button" title="Add a stop" aria-label="Add a stop"><i data-lucide="plus"></i></button></div>
         <div id="stop-inputs"></div>
-        <div class="field-row run-options"><div><label for="attempts">Planning attempts</label><select id="attempts"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div><div class="area-label"><i data-lucide="map-pin"></i><span id="area-summary">Tempe<small>5 km search radius</small></span></div></div>
-        <button id="browse-button" class="browse-button" type="button"><i data-lucide="search"></i><span>Browse places</span></button>
+        <div class="action-row"><button id="browse-button" class="browse-button" type="button" title="Browse places"><i data-lucide="search"></i><span>Browse</span></button><button id="run-button" class="run-button" type="submit"><i data-lucide="arrow-up-right"></i><span>Plan evening</span></button></div>
         <p id="billing-note" class="billing-note">Real model calls may incur AWS charges.</p>
-        <button id="run-button" class="run-button" type="submit"><i data-lucide="arrow-up-right"></i><span>Plan evening</span></button>
       </form>
     </aside>
     <section class="results">

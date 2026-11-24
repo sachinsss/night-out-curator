@@ -35,7 +35,7 @@ class UIRequest(BaseModel):
     mood: Literal["chill", "lively", "quiet", "casual", "romantic", ""] = "chill"
     vegan_required: bool = False
     mock: bool = False
-    max_attempts: int = Field(default=2, ge=1, le=4)
+    max_attempts: int = Field(default=8, ge=1, le=8)
     data_mode: Literal["live", "fixture"] = "fixture"
     search_area: Literal["tempe", "phoenix", "metro"] = "tempe"
     radius_m: int = Field(default=5000, ge=500, le=30000)

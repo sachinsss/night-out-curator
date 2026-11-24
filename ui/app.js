@@ -304,8 +304,6 @@ async function boot() {
     byId('model-name').textContent = config.model.includes('haiku') ? `Haiku 4.5 / ${config.region}` : `${config.provider} / ${config.region}`;
     byId('venue-provider').value = config.discovery_provider === 'Google Maps' ? 'google' : 'geoapify';
     mapsEmbedKey = config.maps_embed_key || '';
-    const sample = await (await fetch('/api/sample')).json();
-    if (sample.status !== 'empty') renderResult(sample);
   } catch { byId('run-status').textContent = 'Server unavailable'; }
 }
 boot();
